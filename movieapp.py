@@ -1,3 +1,92 @@
+import pickle
+import streamlit as st
+import requests
+
+
+
+
+
+
+
+# Add heading and description
+st.title("Recommendation System")
+st.markdown("This is a recommendation system for movies and books.")
+
+
+def fetch_poster(movie_id):
+    url = "https://api.themoviedb.org/3/movie/{}?api_key=8265bd1679663a7ea12ac168da84d2e8&language=en-US".format(movie_id)
+    data = requests.get(url)
+    data = data.json()
+
+    poster_path = data.get('poster_path')
+    if poster_path is not None:
+        full_path = "https://image.tmdb.org/t/p/w500/" + poster_path
+    else:
+        # Handle the case when poster_path is None
+        full_path = "Path to default poster image"
+
+    return full_path
+
+
+
+def recommend(movie):
+    index = movies[movies['title'] == movie].index[0]
+    distances = sorted(list(enumerate(similarity[index])), reverse=True, key=lambda x: x[1])
+    recommended_movie_names = []
+    recommended_movie_posters = []
+
+    # Fetch the selected movie poster
+    selected_movie_id = movies.iloc[index].movie_id
+    selected_movie_poster = fetch_poster(selected_movie_id)
+    recommended_movie_names.append(movie)
+    recommended_movie_posters.append(selected_movie_poster)
+
+    for i in distances[1:20]:
+        # Fetch the recommended movie posters
+        movie_id = movies.iloc[i[0]].movie_id
+        recommended_movie_posters.append(fetch_poster(movie_id))
+        recommended_movie_names.append(movies.iloc[i[0]].title)
+
+    return recommended_movie_names, recommended_movie_posters
+
+
+
+st.header('Movie Recommender System')
+movies = pickle.load(open('movie_list.pkl','rb'))
+similarity = pickle.load(open('similarity.pkl','rb'))
+
+movie_list = movies['title'].values
+selected_movie = st.selectbox(
+    "Type or select a movie from the dropdown",
+    movie_list
+)
+
+
+if st.button('Show Movie Recommendation'):
+    recommended_movie_names, recommended_movie_posters = recommend(selected_movie)
+    num_movies_to_display = 10  # Number of movies to display
+    num_recommendations = len(recommended_movie_names)
+
+    if num_recommendations < num_movies_to_display:
+        num_movies_to_display = num_recommendations
+
+    cols = st.columns(5)
+
+    for i in range(num_movies_to_display):
+        with cols[i % 5]:
+            st.text(recommended_movie_names[i])
+            st.image(recommended_movie_posters[i])
+
+    show_more = st.button("Show More")
+
+    if show_more:
+        remaining_movies = num_recommendations - num_movies_to_display
+        num_movies_to_display += min(remaining_movies, 10)  # Increase the number of movies to display
+        st.caching.clear_cache()  # Clear the cache to update the movie list
+        st.experimental_rerun()  # Rerun the app to update the display
+
+
+
 
 
 import streamlit as st
